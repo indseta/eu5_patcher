@@ -147,7 +147,7 @@ void make_patch(const std::string &filename)
 
     if (index == std::string::npos)
     {
-        std::cout << "Fail: The pattern is not founded. Have you patched it before? "
+        std::cout << "Fail: The pattern is not found. Have you patched it before? "
                   << "If no, the pattern needs to update." << std::endl;
         return;
     }

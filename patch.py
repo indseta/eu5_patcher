@@ -54,7 +54,7 @@ def make_patch(filename):
     matches = [m.start() for m in regex.finditer(data)]
     if len(matches) != 1:
         print(
-            "Fail: The pattern is not founded. Have you patched it before? "
+            "Fail: The pattern is not found. Have you patched it before? "
             "If no, the pattern needs to update."
         )
         exit()
