@@ -1,73 +1,95 @@
-#include <iostream>
-#include <fstream>
-#include <vector>
-#include <string>
-#include <sstream>
-#include <cstring>
-#include <filesystem>
+/**
+ * EU5 Patcher - Enable Achievements Unconditionally
+ * Compile: cl /std:c++17 /O2 /EHsc patch.cpp
+ */
+
 #include <algorithm>
+#include <cstdint>
+#include <filesystem>
+#include <fstream>
+#include <iomanip>
+#include <iostream>
+#include <optional>
+#include <sstream>
+#include <string>
+#include <string_view>
+#include <vector>
 
 namespace fs = std::filesystem;
 
-const std::string PATTERN = "80 ?? ?? ?? ?? ?? 00 75 ?? 80 ?? ?? ?? ?? ?? 00 74 ?? 80 ?? ?? ?? ?? ?? 00 74 ?? 80 ?? ?? ?? ?? ?? 00";
-const std::string PATTERN_REPLACE = "80 ?? ?? ?? ?? ?? 00 eb";
-const std::string EU5_PATH = "eu5.exe";
-const std::string EU5_BACKUP_PATH = "eu5.exe.backup";
+// Constants
+constexpr std::string_view PATTERN =
+    "80 ?? ?? ?? ?? ?? 00 75 ?? "
+    "80 ?? ?? ?? ?? ?? 00 74 ?? "
+    "80 ?? ?? ?? ?? ?? 00 74 ?? "
+    "80 ?? ?? ?? ?? ?? 00";
+constexpr std::string_view PATTERN_REPLACE = "80 ?? ?? ?? ?? ?? 00 eb";
+constexpr std::string_view EU5_PATH = "eu5.exe";
+constexpr std::string_view EU5_BACKUP_PATH = "eu5.exe.backup";
 
+/**
+ * Represents a single byte in a pattern, which can be either
+ * a specific value or a wildcard.
+ */
 struct PatternByte
 {
-    uint8_t value;
-    bool is_wildcard;
+    uint8_t value{0};
+    bool is_wildcard{false};
+
+    static PatternByte wildcard() { return {0, true}; }
+    static PatternByte exact(uint8_t v) { return {v, false}; }
 };
 
-// Parse pattern string into efficient structure
-std::vector<PatternByte> parse_pattern(const std::string &pattern_str)
+/**
+ * Parse a pattern string (e.g., "80 ?? AB") into a vector of PatternBytes.
+ */
+[[nodiscard]] std::vector<PatternByte> parse_pattern(std::string_view pattern_str)
 {
     std::vector<PatternByte> result;
-    std::istringstream iss(pattern_str);
+    std::istringstream iss{std::string(pattern_str)};
     std::string token;
 
     while (iss >> token)
     {
-        PatternByte pb;
         if (token == "??")
         {
-            pb.is_wildcard = true;
-            pb.value = 0;
+            result.push_back(PatternByte::wildcard());
         }
         else
         {
-            pb.is_wildcard = false;
-            pb.value = static_cast<uint8_t>(std::stoi(token, nullptr, 16));
+            result.push_back(PatternByte::exact(
+                static_cast<uint8_t>(std::stoi(token, nullptr, 16))));
         }
-        result.push_back(pb);
     }
 
     return result;
 }
 
-// Boyer-Moore-Horspool pattern matching for better performance
-size_t find_pattern(const std::vector<uint8_t> &data, const std::vector<PatternByte> &pattern)
+/**
+ * Find a pattern in data, returning the offset if found.
+ * Supports wildcard bytes in the pattern.
+ */
+[[nodiscard]] std::optional<size_t> find_pattern(
+    const std::vector<uint8_t> &data,
+    const std::vector<PatternByte> &pattern)
 {
     if (pattern.empty() || data.size() < pattern.size())
     {
-        return std::string::npos;
+        return std::nullopt;
     }
 
     const size_t pattern_len = pattern.size();
-    const size_t data_len = data.size();
+    const size_t search_end = data.size() - pattern_len;
 
-    // Simple pattern matching with wildcard support
-    for (size_t i = 0; i <= data_len - pattern_len; ++i)
+    for (size_t i = 0; i <= search_end; ++i)
     {
         bool match = true;
 
-        for (size_t j = 0; j < pattern_len; ++j)
+        for (size_t j = 0; j < pattern_len && match; ++j)
         {
             if (!pattern[j].is_wildcard && data[i + j] != pattern[j].value)
             {
                 match = false;
-                break;
             }
         }
 
@@ -77,130 +99,150 @@ size_t find_pattern(const std::vector<uint8_t> &data, const std::vector<PatternB
         }
     }
 
-    return std::string::npos;
+    return std::nullopt;
 }
 
-// Fast file reading using reserve
-std::vector<uint8_t> read_file(const std::string &filename)
+/**
+ * Read entire file into a byte vector.
+ */
+[[nodiscard]] std::optional<std::vector<uint8_t>> read_file(const fs::path &filepath)
 {
-    std::ifstream file(filename, std::ios::binary | std::ios::ate);
+    std::ifstream file(filepath, std::ios::binary | std::ios::ate);
     if (!file)
     {
-        throw std::runtime_error("Cannot open file: " + filename);
+        return std::nullopt;
     }
 
-    std::streamsize size = file.tellg();
+    const auto size = file.tellg();
     file.seekg(0, std::ios::beg);
 
-    std::vector<uint8_t> buffer;
-    buffer.reserve(size);
-    buffer.assign(std::istreambuf_iterator<char>(file),
-                  std::istreambuf_iterator<char>());
+    std::vector<uint8_t> buffer(static_cast<size_t>(size));
+    if (!file.read(reinterpret_cast<char *>(buffer.data()), size))
+    {
+        return std::nullopt;
+    }
 
     return buffer;
 }
 
-// Fast file writing
-void write_file(const std::string &filename, const std::vector<uint8_t> &data)
+/**
+ * Write byte vector to file.
+ */
+[[nodiscard]] bool write_file(const fs::path &filepath, const std::vector<uint8_t> &data)
 {
-    std::ofstream file(filename, std::ios::binary);
+    std::ofstream file(filepath, std::ios::binary);
     if (!file)
     {
-        throw std::runtime_error("Cannot write file: " + filename);
+        return false;
     }
 
-    file.write(reinterpret_cast<const char *>(data.data()), data.size());
+    file.write(reinterpret_cast<const char *>(data.data()),
+               static_cast<std::streamsize>(data.size()));
+    return file.good();
 }
 
-void make_patch(const std::string &filename)
+/**
+ * Create a backup of the target file.
+ */
+[[nodiscard]] bool create_backup(const fs::path &source, const fs::path &dest)
 {
-    // Make Backup
-    try
+    std::error_code ec;
+    fs::copy_file(source, dest, fs::copy_options::overwrite_existing, ec);
+    return !ec;
+}
+
+/**
+ * Apply the patch to the target file.
+ * Returns: 0 = success, 1 = error
+ */
+[[nodiscard]] int make_patch(const fs::path &filepath)
+{
+    // Create backup
+    if (!create_backup(filepath, fs::path(EU5_BACKUP_PATH)))
     {
-        fs::copy_file(EU5_PATH, EU5_BACKUP_PATH, fs::copy_options::overwrite_existing);
-        std::cout << "Backup is made: " << EU5_BACKUP_PATH << std::endl;
+        std::cerr << "Error: Failed to create backup.\n";
+        return 1;
     }
-    catch (const std::exception &e)
-    {
-        std::cerr << "Failed to create backup: " << e.what() << std::endl;
-        return;
-    }
+    std::cout << "Backup created: " << EU5_BACKUP_PATH << '\n';
 
     // Read file
-    std::vector<uint8_t> data;
-    try
+    auto data_opt = read_file(filepath);
+    if (!data_opt)
     {
-        data = read_file(filename);
+        std::cerr << "Error: Failed to read " << filepath << '\n';
+        return 1;
     }
-    catch (const std::exception &e)
-    {
-        std::cerr << "Failed to read file: " << e.what() << std::endl;
-        return;
-    }
+    auto &data = *data_opt;
 
     // Parse patterns
-    auto pattern = parse_pattern(PATTERN);
-    auto replace_pattern = parse_pattern(PATTERN_REPLACE);
+    const auto pattern = parse_pattern(PATTERN);
+    const auto replace_pattern = parse_pattern(PATTERN_REPLACE);
 
     // Find pattern
-    size_t index = find_pattern(data, pattern);
-
-    if (index == std::string::npos)
+    auto offset_opt = find_pattern(data, pattern);
+    if (!offset_opt)
     {
-        std::cout << "Fail: The pattern is not found. Have you patched it before? "
-                  << "If no, the pattern needs to update." << std::endl;
-        return;
+        std::cerr << "Error: Pattern not found. Have you patched it before?\n"
+                  << "If not, the pattern may need to be updated.\n";
+        return 1;
     }
+    const size_t offset = *offset_opt;
 
-    // Replace bytes
+    std::cout << "\nPattern found at offset: 0x" << std::hex << offset << std::dec << '\n';
+    std::cout << "Applying patch...\n\n";
+
+    // Apply replacement
     for (size_t i = 0; i < replace_pattern.size(); ++i)
     {
-        if (replace_pattern[i].is_wildcard)
+        const uint8_t original = data[offset + i];
+        const auto &pb = replace_pattern[i];
+
+        std::cout << "0x" << std::hex << std::setfill('0')
+                  << std::setw(6) << (offset + i) << ": 0x"
+                  << std::setw(2) << static_cast<int>(original) << " -> 0x";
+
+        if (pb.is_wildcard)
         {
-            std::cout << index + i << ": 0x" << std::hex
-                      << static_cast<int>(data[index + i])
-                      << " \t-> 0x" << static_cast<int>(data[index + i])
-                      << std::dec << std::endl;
+            std::cout << std::setw(2) << static_cast<int>(original) << " (unchanged)";
         }
         else
         {
-            std::cout << index + i << ": 0x" << std::hex
-                      << static_cast<int>(data[index + i])
-                      << " \t-> 0x" << static_cast<int>(replace_pattern[i].value)
-                      << std::dec << std::endl;
-            data[index + i] = replace_pattern[i].value;
+            std::cout << std::setw(2) << static_cast<int>(pb.value);
+            data[offset + i] = pb.value;
         }
+        std::cout << std::dec << '\n';
     }
 
     // Write back
-    try
+    if (!write_file(filepath, data))
     {
-        write_file(filename, data);
-        std::cout << "EU5 is successfully patched." << std::endl;
+        std::cerr << "Error: Failed to write patched file.\n";
+        return 1;
     }
-    catch (const std::exception &e)
-    {
-        std::cerr << "Failed to write file: " << e.what() << std::endl;
-    }
+
+    std::cout << "\nEU5 is successfully patched.\n";
+    return 0;
 }
 
 int main()
 {
-    // Check Path
-    if (!fs::exists(EU5_PATH))
+    const fs::path target_path{EU5_PATH};
+
+    // Check if target exists
+    if (!fs::exists(target_path))
     {
-        std::cout << "eu5.exe is not found. "
-                  << "Put this file in .../Europa Universalis IV/binaries/" << std::endl;
-        std::cout << "Press any key to exit..." << std::endl;
+        std::cerr << "eu5.exe not found.\n"
+                  << "Place this file in .../Europa Universalis V/binaries/\n";
+        std::cout << "Press Enter to exit...";
         std::cin.get();
-        return 0;
+        return 1;
     }
 
-    // Patch
-    make_patch(EU5_PATH);
+    // Apply patch
+    const int result = make_patch(target_path);
 
-    std::cout << "Press any key to exit..." << std::endl;
+    std::cout << "Press Enter to exit...";
     std::cin.get();
 
-    return 0;
+    return result;
 }

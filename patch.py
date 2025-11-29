@@ -1,96 +1,141 @@
-import os
+"""EU5 Patcher - Enable Achievements Unconditionally"""
+
 import re
 import shutil
+import sys
+from pathlib import Path
+from typing import Final
 
-PATTERN = "80 ?? ?? ?? ?? ?? 00 75 ?? 80 ?? ?? ?? ?? ?? 00 74 ?? 80 ?? ?? ?? ?? ?? 00 74 ?? 80 ?? ?? ?? ?? ?? 00"
-PATTERN_REPLACE = "80 ?? ?? ?? ?? ?? 00 eb"
+# Constants
+PATTERN: Final[str] = (
+    "80 ?? ?? ?? ?? ?? 00 75 ?? "
+    "80 ?? ?? ?? ?? ?? 00 74 ?? "
+    "80 ?? ?? ?? ?? ?? 00 74 ?? "
+    "80 ?? ?? ?? ?? ?? 00"
+)
+PATTERN_REPLACE: Final[str] = "80 ?? ?? ?? ?? ?? 00 eb"
 
-EU5_PATH = "eu5.exe"
-EU5_BACKUP_PATH = "eu5.exe.backup"
+EU5_PATH: Final[Path] = Path("eu5.exe")
+EU5_BACKUP_PATH: Final[Path] = Path("eu5.exe.backup")
 
 
-def pattern_to_regex(pattern_str):
+class PatchError(Exception):
+    """Custom exception for patch-related errors."""
+
+
+def pattern_to_regex(pattern_str: str) -> re.Pattern[bytes]:
+    """Convert a hex pattern string with wildcards to a compiled regex."""
     parts = pattern_str.split()
-    regex_bytes = b""
-    count_any = 0
+    regex_parts: list[bytes] = []
+    wildcard_count = 0
 
     for part in parts:
         if part == "??":
-            count_any += 1
+            wildcard_count += 1
         else:
-            if count_any > 0:
-                regex_bytes += b".{" + str(count_any).encode() + b"}"
-                count_any = 0
-            regex_bytes += bytes.fromhex(part)
+            if wildcard_count > 0:
+                regex_parts.append(f".{{{wildcard_count}}}".encode())
+                wildcard_count = 0
+            # Escape the byte in case it's a regex special char
+            regex_parts.append(re.escape(bytes.fromhex(part)))
 
-    if count_any > 0:
-        regex_bytes += b".{" + str(count_any).encode() + b"}"
+    if wildcard_count > 0:
+        regex_parts.append(f".{{{wildcard_count}}}".encode())
 
-    return re.compile(regex_bytes, re.DOTALL)
+    return re.compile(b"".join(regex_parts), re.DOTALL)
 
 
-def pattern_to_list(pattern_str):
-    res = []
-    for i in pattern_str.split():
-        if i == "??":
-            res.append(i)
+def pattern_to_list(pattern_str: str) -> list[int | None]:
+    """Convert a hex pattern string to a list of byte values (None for wildcards)."""
+    return [None if part == "??" else int(part, 16) for part in pattern_str.split()]
+
+
+def create_backup(source: Path, dest: Path) -> None:
+    """Create a backup of the source file."""
+    try:
+        shutil.copy2(source, dest)
+        print(f"Backup created: {dest}")
+    except OSError as e:
+        raise PatchError(f"Failed to create backup: {e}") from e
+
+
+def find_pattern(data: bytes, pattern: re.Pattern[bytes]) -> int:
+    """Find the pattern in data and return its offset."""
+    matches = list(pattern.finditer(data))
+
+    if len(matches) == 0:
+        raise PatchError(
+            "Pattern not found. Have you patched it before? "
+            "If not, the pattern may need to be updated."
+        )
+    if len(matches) > 1:
+        raise PatchError(
+            f"Multiple matches found ({len(matches)}). " "The pattern is ambiguous."
+        )
+
+    return matches[0].start()
+
+
+def apply_patch(data: bytearray, offset: int, replacement: list[int | None]) -> None:
+    """Apply the replacement pattern at the specified offset."""
+    for i, value in enumerate(replacement):
+        original = data[offset + i]
+        if value is None:
+            print(f"{offset + i:#x}: {original:#04x} -> {original:#04x} (unchanged)")
         else:
-            res.append(hex(int(i, 16)))
-    return res
+            print(f"{offset + i:#x}: {original:#04x} -> {value:#04x}")
+            data[offset + i] = value
 
 
-def make_patch(filename):
+def make_patch(filepath: Path) -> None:
+    """Patch the target executable."""
+    # Create backup
+    create_backup(filepath, EU5_BACKUP_PATH)
 
-    # Make Backup
-    shutil.copy2(EU5_PATH, EU5_BACKUP_PATH)
-    print(f"Backup is made: {EU5_BACKUP_PATH}")
+    # Read file
+    try:
+        data = bytearray(filepath.read_bytes())
+    except OSError as e:
+        raise PatchError(f"Failed to read file: {e}") from e
 
-    # Read
-    with open(filename, "rb") as f:
-        data = bytearray(f.read())
-
-    # Match
+    # Find and apply patch
     regex = pattern_to_regex(PATTERN)
-    matches = [m.start() for m in regex.finditer(data)]
-    if len(matches) != 1:
+    offset = find_pattern(data, regex)
+    replacement = pattern_to_list(PATTERN_REPLACE)
+
+    print(f"\nPattern found at offset: {offset:#x}")
+    print("Applying patch...\n")
+
+    apply_patch(data, offset, replacement)
+
+    # Write back
+    try:
+        filepath.write_bytes(data)
+        print("\nEU5 is successfully patched.")
+    except OSError as e:
+        raise PatchError(f"Failed to write file: {e}") from e
+
+
+def main() -> int:
+    """Main entry point."""
+    if not EU5_PATH.exists():
         print(
-            "Fail: The pattern is not found. Have you patched it before? "
-            "If no, the pattern needs to update."
+            "eu5.exe not found. "
+            "Place this script in .../Europa Universalis V/binaries/"
         )
-        exit()
-    index = matches[0]
+        input("Press Enter to exit...")
+        return 1
 
-    # Replace
-    replace_parts = pattern_to_list(PATTERN_REPLACE)
-    for i in range(len(replace_parts)):
-        if replace_parts[i] == "??":
-            print(f"{index+i}: {hex(data[index + i])} \t-> {hex(data[index + i])}")
-        else:
-            print(f"{index+i}: {hex(data[index + i])} \t-> {replace_parts[i]}")
-            data[index + i] = int(replace_parts[i], 16)
+    try:
+        make_patch(EU5_PATH)
+    except PatchError as e:
+        print(f"Error: {e}")
+        input("Press Enter to exit...")
+        return 1
 
-    # Write Back
-    with open(filename, "wb") as f:
-        f.write(data)
-        print("EU5 is successfully patched.")
-
-
-def main():
-
-    # Check Path
-    if not os.path.exists(EU5_PATH):
-        print(
-            "eu5.exe is not found. "
-            "Put this file in .../Europa Universalis IV/binaries/"
-        )
-        exit(0)
-
-    # Patch
-    make_patch(EU5_PATH)
-
-    print("Press any key to exit...")
-    input()
+    input("Press Enter to exit...")
+    return 0
 
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main())
