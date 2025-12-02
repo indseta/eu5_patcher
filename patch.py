@@ -13,10 +13,33 @@ PATTERN: Final[str] = (
     "80 ?? ?? ?? ?? ?? 00 74 ?? "
     "80 ?? ?? ?? ?? ?? 00"
 )
+
 PATTERN_REPLACE: Final[str] = "80 ?? ?? ?? ?? ?? 00 eb"
+
+PATTERN2: Final[str] = (
+    "74 ?? "
+    "?? ?? ?? "
+    "ff ?? ?? "
+    "e8 ?? ?? ?? ?? "
+    "80 ?? ?? ?? ?? ?? 00 "
+    "74 ?? "
+    "32 c0"
+)
+
+PATTERN_REPLACE2: Final[str] = (
+    "eb ?? "
+    "?? ?? ?? "
+    "ff ?? ?? "
+    "e8 ?? ?? ?? ?? "
+    "80 ?? ?? ?? ?? ?? 00 "
+    "74 ?? "
+    "b0 00"
+)
 
 EU5_PATH: Final[Path] = Path("eu5.exe")
 EU5_BACKUP_PATH: Final[Path] = Path("eu5.exe.backup")
+
+debuge_info = False
 
 
 class PatchError(Exception):
@@ -81,32 +104,42 @@ def apply_patch(data: bytearray, offset: int, replacement: list[int | None]) -> 
     for i, value in enumerate(replacement):
         original = data[offset + i]
         if value is None:
-            print(f"{offset + i:#x}: {original:#04x} -> {original:#04x} (unchanged)")
+            if debuge_info:
+                print(f"{offset + i:#x}: {original:#04x} -> {original:#04x} (unchanged)")
         else:
-            print(f"{offset + i:#x}: {original:#04x} -> {value:#04x}")
+            if debuge_info:
+                print(f"{offset + i:#x}: {original:#04x} -> {value:#04x}")
             data[offset + i] = value
 
 
 def make_patch(filepath: Path) -> None:
     """Patch the target executable."""
-    # Create backup
-    create_backup(filepath, EU5_BACKUP_PATH)
-
     # Read file
     try:
         data = bytearray(filepath.read_bytes())
     except OSError as e:
         raise PatchError(f"Failed to read file: {e}") from e
 
-    # Find and apply patch
-    regex = pattern_to_regex(PATTERN)
-    offset = find_pattern(data, regex)
-    replacement = pattern_to_list(PATTERN_REPLACE)
+    # Find patterns before touching disk
+    regex1 = pattern_to_regex(PATTERN)
+    regex2 = pattern_to_regex(PATTERN2)
+    offset1 = find_pattern(data, regex1)
+    offset2 = find_pattern(data, regex2)
+    replacement1 = pattern_to_list(PATTERN_REPLACE)
+    replacement2 = pattern_to_list(PATTERN_REPLACE2)
 
-    print(f"\nPattern found at offset: {offset:#x}")
-    print("Applying patch...\n")
+    # Create backup only after both patterns are confirmed
+    create_backup(filepath, EU5_BACKUP_PATH)
 
-    apply_patch(data, offset, replacement)
+    print(f"\nPatch #1 found at offset: {offset1:#x}")
+    if debuge_info:
+        print("Applying Patch #1...\n")
+    apply_patch(data, offset1, replacement1)
+
+    print(f"\nPatch #2 found at offset: {offset2:#x}")
+    if debuge_info:
+        print("Applying Patch #2...\n")
+    apply_patch(data, offset2, replacement2)
 
     # Write back
     try:

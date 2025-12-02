@@ -14,18 +14,17 @@
 
 ## 📖 About
 
-The debate over whether **Ironman mode** should be required to unlock achievements has been going on for years. While *Crusader Kings III* and *Stellaris* took a player-friendly approach, *Europa Universalis V* unfortunately stepped backward.
+The debate over whether **unmodified ironman mode** should be required to unlock achievements has been going on for years. While Crusader Kings III and Stellaris took a player-friendly approach, Europa Universalis V unfortunately stepped backward. Therefore, I decide to make this patcher.
 
-This patch removes those restrictions — enabling the achievement system in:
 
-| Feature | Status |
-|---------|--------|
-| 🎮 Non-Ironman mode | ⚠️ Partial (some bugs may block unlocks) |
-| 🔧 Modded games | ✅ Enabled |
-| ⚙️ Any game settings | ✅ Enabled |
+| Mode | Mod | Setting | Save & Load | Achievement Status |
+|-|-|-|-|-|
+|Non-Ironman|✅ Any|✅ Any|✅ Yes|⚠️ Partial|
+|**Ironman**|✅ Any|✅ Any|✅ <ins>**Yes**</ins> |✅ All|
+
 
 > [!NOTE]
-> Some bugs may still prevent achievements from unlocking in non-Ironman mode. If you use Ironman mode, everything works as normal.
+> Some achievements will not be triggered in non-ironman mode. So I recomment the ironman mode since you can save and load as normal.
 
 <div align="center">
 <img src="figures/effect.png" alt="Achievement Effect" width="600"/>
@@ -39,20 +38,12 @@ This patch removes those restrictions — enabling the achievement system in:
 ### 🐍 Option 1: Python
 
 ```bash
-# 1. Navigate to game directory
+# 1. Navigate to game directory where eu5.exe exists
 cd ".../Europa Universalis V/binaries/"
 
-# 2. Run the patch script
+# 2. Put patch.py into the folder and run the patch script
 python patch.py
 ```
-
-<details>
-<summary>📋 Prerequisites</summary>
-
-- Python 3.10+ installed
-- PATH environment variable configured correctly
-
-</details>
 
 ### ⚙️ Option 2: C++
 
@@ -60,7 +51,7 @@ python patch.py
 # 1. Compile the source
 cl /std:c++17 /O2 /EHsc patch.cpp
 
-# 2. Move patch.exe to game directory and run it
+# 2. Move patch.exe to game directory where eu5.exe exists and run it
 ```
 
 ### ⚠️ Option 3: Pre-built EXE
@@ -69,7 +60,7 @@ cl /std:c++17 /O2 /EHsc patch.cpp
 > Running unknown executables is risky. Only proceed if you fully trust the source.
 
 1. Download `patch.exe` from the [📦 Releases page](https://github.com/UFOdestiny/EU5-Patcher/releases/tag/exe)
-2. Place it in `.../Europa Universalis V/binaries/`
+2. Place it in `.../Europa Universalis V/binaries/` where eu5.exe exists
 3. Run it
 
 ---
@@ -83,7 +74,7 @@ EU5 is successfully patched.
 ```
 
 > [!TIP]
-> The trophy icon may appear **red** in the settings menu at first. Simply start the game, and it will turn **green**.
+> The trophy and ironman icon may appear **red** in the settings menu at first. Simply start the game, and it will turn **green**.
 
 ---
 

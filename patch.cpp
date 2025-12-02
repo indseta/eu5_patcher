@@ -24,8 +24,29 @@ constexpr std::string_view PATTERN =
     "80 ?? ?? ?? ?? ?? 00 74 ?? "
     "80 ?? ?? ?? ?? ?? 00";
 constexpr std::string_view PATTERN_REPLACE = "80 ?? ?? ?? ?? ?? 00 eb";
+
+constexpr std::string_view PATTERN2 =
+    "74 ?? "
+    "?? ?? ?? "
+    "ff ?? ?? "
+    "e8 ?? ?? ?? ?? "
+    "80 ?? ?? ?? ?? ?? 00 "
+    "74 ?? "
+    "32 c0";
+
+constexpr std::string_view PATTERN_REPLACE2 =
+    "eb ?? "
+    "?? ?? ?? "
+    "ff ?? ?? "
+    "e8 ?? ?? ?? ?? "
+    "80 ?? ?? ?? ?? ?? 00 "
+    "74 ?? "
+    "b0 00";
+
 constexpr std::string_view EU5_PATH = "eu5.exe";
 constexpr std::string_view EU5_BACKUP_PATH = "eu5.exe.backup";
+
+bool debuge_info = false;
 
 /**
  * Represents a single byte in a pattern, which can be either
@@ -103,6 +124,50 @@ struct PatternByte
 }
 
 /**
+ * Apply the replacement bytes at the given offset, printing progress details.
+ */
+void apply_patch_bytes(std::vector<uint8_t> &data,
+                       size_t offset,
+                       const std::vector<PatternByte> &replacement,
+                       std::string_view label)
+{
+    std::cout << '\n'
+              << label << " found at offset: 0x"
+              << std::hex << offset << std::dec << '\n';
+
+    if (debuge_info)
+        std::cout << "Applying " << label << "...\n\n";
+
+    for (size_t i = 0; i < replacement.size(); ++i)
+    {
+        const size_t absolute_pos = offset + i;
+        const uint8_t original = data[absolute_pos];
+        const auto &pb = replacement[i];
+
+        if (debuge_info)
+            std::cout << "0x" << std::hex << std::setfill('0')
+                      << std::setw(6) << absolute_pos << ": 0x"
+                      << std::setw(2) << static_cast<int>(original) << " -> 0x";
+
+        if (pb.is_wildcard)
+        {
+            if (debuge_info)
+                std::cout << std::setw(2) << static_cast<int>(original)
+                          << " (unchanged)";
+        }
+        else
+        {
+            if (debuge_info)
+                std::cout << std::setw(2) << static_cast<int>(pb.value);
+
+            data[absolute_pos] = pb.value;
+        }
+        if (debuge_info)
+            std::cout << std::dec << '\n';
+    }
+}
+
+/**
  * Read entire file into a byte vector.
  */
 [[nodiscard]] std::optional<std::vector<uint8_t>> read_file(const fs::path &filepath)
@@ -157,14 +222,6 @@ struct PatternByte
  */
 [[nodiscard]] int make_patch(const fs::path &filepath)
 {
-    // Create backup
-    if (!create_backup(filepath, fs::path(EU5_BACKUP_PATH)))
-    {
-        std::cerr << "Error: Failed to create backup.\n";
-        return 1;
-    }
-    std::cout << "Backup created: " << EU5_BACKUP_PATH << '\n';
-
     // Read file
     auto data_opt = read_file(filepath);
     if (!data_opt)
@@ -177,8 +234,10 @@ struct PatternByte
     // Parse patterns
     const auto pattern = parse_pattern(PATTERN);
     const auto replace_pattern = parse_pattern(PATTERN_REPLACE);
+    const auto pattern2 = parse_pattern(PATTERN2);
+    const auto replace_pattern2 = parse_pattern(PATTERN_REPLACE2);
 
-    // Find pattern
+    // Find patterns
     auto offset_opt = find_pattern(data, pattern);
     if (!offset_opt)
     {
@@ -188,30 +247,25 @@ struct PatternByte
     }
     const size_t offset = *offset_opt;
 
-    std::cout << "\nPattern found at offset: 0x" << std::hex << offset << std::dec << '\n';
-    std::cout << "Applying patch...\n\n";
-
-    // Apply replacement
-    for (size_t i = 0; i < replace_pattern.size(); ++i)
+    auto offset2_opt = find_pattern(data, pattern2);
+    if (!offset2_opt)
     {
-        const uint8_t original = data[offset + i];
-        const auto &pb = replace_pattern[i];
-
-        std::cout << "0x" << std::hex << std::setfill('0')
-                  << std::setw(6) << (offset + i) << ": 0x"
-                  << std::setw(2) << static_cast<int>(original) << " -> 0x";
-
-        if (pb.is_wildcard)
-        {
-            std::cout << std::setw(2) << static_cast<int>(original) << " (unchanged)";
-        }
-        else
-        {
-            std::cout << std::setw(2) << static_cast<int>(pb.value);
-            data[offset + i] = pb.value;
-        }
-        std::cout << std::dec << '\n';
+        std::cerr << "Error: Second pattern not found. Have you patched it before?\n"
+                  << "If not, the second pattern may need to be updated.\n";
+        return 1;
     }
+    const size_t offset2 = *offset2_opt;
+
+    // Create backup only after confirming both patterns exist
+    if (!create_backup(filepath, fs::path(EU5_BACKUP_PATH)))
+    {
+        std::cerr << "Error: Failed to create backup.\n";
+        return 1;
+    }
+    std::cout << "Backup created: " << EU5_BACKUP_PATH << '\n';
+
+    apply_patch_bytes(data, offset, replace_pattern, "Patch #1");
+    apply_patch_bytes(data, offset2, replace_pattern2, "Patch #2");
 
     // Write back
     if (!write_file(filepath, data))
