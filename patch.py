@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import Final
 
 # Constants
+# Achievement Check
 PATTERN: Final[str] = (
     "80 ?? ?? ?? ?? ?? 00 75 ?? "
     "80 ?? ?? ?? ?? ?? 00 74 ?? "
@@ -16,6 +17,7 @@ PATTERN: Final[str] = (
 
 PATTERN_REPLACE: Final[str] = "80 ?? ?? ?? ?? ?? 00 eb"
 
+# Ironman Save and Load
 PATTERN2: Final[str] = (
     "74 ?? "
     "?? ?? ?? "
@@ -33,6 +35,29 @@ PATTERN_REPLACE2: Final[str] = (
     "e8 ?? ?? ?? ?? "
     "80 ?? ?? ?? ?? ?? 00 "
     "74 ?? "
+    "b0 00"
+)
+
+# Ironman Console
+PATTERN3: Final[str] = (
+    "00 "
+    "75 ?? "
+    "80 ?? ?? ?? ?? ?? 00 "
+    "75 ?? "
+    "32 c0 "
+    "48 ?? ?? ?? "
+    "c3 "
+    "b0 01"
+)
+
+PATTERN_REPLACE3: Final[str] = (
+    "00 "
+    "75 ?? "
+    "80 ?? ?? ?? ?? ?? 00 "
+    "75 ?? "
+    "32 c0 "
+    "48 ?? ?? ?? "
+    "c3 "
     "b0 00"
 )
 
@@ -105,7 +130,9 @@ def apply_patch(data: bytearray, offset: int, replacement: list[int | None]) -> 
         original = data[offset + i]
         if value is None:
             if debuge_info:
-                print(f"{offset + i:#x}: {original:#04x} -> {original:#04x} (unchanged)")
+                print(
+                    f"{offset + i:#x}: {original:#04x} -> {original:#04x} (unchanged)"
+                )
         else:
             if debuge_info:
                 print(f"{offset + i:#x}: {original:#04x} -> {value:#04x}")
@@ -123,10 +150,13 @@ def make_patch(filepath: Path) -> None:
     # Find patterns before touching disk
     regex1 = pattern_to_regex(PATTERN)
     regex2 = pattern_to_regex(PATTERN2)
+    regex3 = pattern_to_regex(PATTERN3)
     offset1 = find_pattern(data, regex1)
     offset2 = find_pattern(data, regex2)
+    offset3 = find_pattern(data, regex3)
     replacement1 = pattern_to_list(PATTERN_REPLACE)
     replacement2 = pattern_to_list(PATTERN_REPLACE2)
+    replacement3 = pattern_to_list(PATTERN_REPLACE3)
 
     # Create backup only after both patterns are confirmed
     create_backup(filepath, EU5_BACKUP_PATH)
@@ -140,6 +170,11 @@ def make_patch(filepath: Path) -> None:
     if debuge_info:
         print("Applying Patch #2...\n")
     apply_patch(data, offset2, replacement2)
+
+    print(f"\nPatch #3 found at offset: {offset3:#x}")
+    if debuge_info:
+        print("Applying Patch #3...\n")
+    apply_patch(data, offset3, replacement3)
 
     # Write back
     try:

@@ -18,6 +18,8 @@
 namespace fs = std::filesystem;
 
 // Constants
+
+// Achievement Check
 constexpr std::string_view PATTERN =
     "80 ?? ?? ?? ?? ?? 00 75 ?? "
     "80 ?? ?? ?? ?? ?? 00 74 ?? "
@@ -25,6 +27,7 @@ constexpr std::string_view PATTERN =
     "80 ?? ?? ?? ?? ?? 00";
 constexpr std::string_view PATTERN_REPLACE = "80 ?? ?? ?? ?? ?? 00 eb";
 
+// Ironman Save and Load
 constexpr std::string_view PATTERN2 =
     "74 ?? "
     "?? ?? ?? "
@@ -41,6 +44,27 @@ constexpr std::string_view PATTERN_REPLACE2 =
     "e8 ?? ?? ?? ?? "
     "80 ?? ?? ?? ?? ?? 00 "
     "74 ?? "
+    "b0 00";
+
+// Ironman Console
+constexpr std::string_view PATTERN3 =
+    "00 "
+    "75 ?? "
+    "80 ?? ?? ?? ?? ?? 00 "
+    "75 ?? "
+    "32 c0 "
+    "48 ?? ?? ?? "
+    "c3 "
+    "b0 01";
+
+constexpr std::string_view PATTERN_REPLACE3 =
+    "00 "
+    "75 ?? "
+    "80 ?? ?? ?? ?? ?? 00 "
+    "75 ?? "
+    "32 c0 "
+    "48 ?? ?? ?? "
+    "c3 "
     "b0 00";
 
 constexpr std::string_view EU5_PATH = "eu5.exe";
@@ -236,12 +260,14 @@ void apply_patch_bytes(std::vector<uint8_t> &data,
     const auto replace_pattern = parse_pattern(PATTERN_REPLACE);
     const auto pattern2 = parse_pattern(PATTERN2);
     const auto replace_pattern2 = parse_pattern(PATTERN_REPLACE2);
+    const auto pattern3 = parse_pattern(PATTERN3);
+    const auto replace_pattern3 = parse_pattern(PATTERN_REPLACE3);
 
     // Find patterns
     auto offset_opt = find_pattern(data, pattern);
     if (!offset_opt)
     {
-        std::cerr << "Error: Pattern not found. Have you patched it before?\n"
+        std::cerr << "Error: Patch #1 not found. Have you patched it before?\n"
                   << "If not, the pattern may need to be updated.\n";
         return 1;
     }
@@ -250,11 +276,20 @@ void apply_patch_bytes(std::vector<uint8_t> &data,
     auto offset2_opt = find_pattern(data, pattern2);
     if (!offset2_opt)
     {
-        std::cerr << "Error: Second pattern not found. Have you patched it before?\n"
+        std::cerr << "Error: Patch #2 not found. Have you patched it before?\n"
                   << "If not, the second pattern may need to be updated.\n";
         return 1;
     }
     const size_t offset2 = *offset2_opt;
+
+    auto offset3_opt = find_pattern(data, pattern3);
+    if (!offset3_opt)
+    {
+        std::cerr << "Error: Patch #3 not found. Have you patched it before?\n"
+                  << "If not, the second pattern may need to be updated.\n";
+        return 1;
+    }
+    const size_t offset3 = *offset3_opt;
 
     // Create backup only after confirming both patterns exist
     if (!create_backup(filepath, fs::path(EU5_BACKUP_PATH)))
@@ -266,6 +301,7 @@ void apply_patch_bytes(std::vector<uint8_t> &data,
 
     apply_patch_bytes(data, offset, replace_pattern, "Patch #1");
     apply_patch_bytes(data, offset2, replace_pattern2, "Patch #2");
+    apply_patch_bytes(data, offset3, replace_pattern3, "Patch #3");
 
     // Write back
     if (!write_file(filepath, data))
