@@ -17,10 +17,10 @@
 The debate over whether **unmodified ironman mode** should be required to unlock achievements has been going on for years. While Crusader Kings III and Stellaris took a player-friendly approach, Europa Universalis V unfortunately stepped backward. Therefore, I decide to make this patcher, which can enable partial achievements in non-ironman mode or enable all achievements in ironman mode. You can save & load just as non-ironman mode in your ironman game.
 
 
-| Mode | Mod | Setting | Save & Load | Achievement Status |
-|-|-|-|-|-|
-|Non-Ironman|✅ Any|✅ Any|✅ Yes|⚠️ Partial|
-|**Ironman**|✅ Any|✅ Any|✅ <ins>**Yes**</ins> |✅ All|
+| Mode        | Mod   | Setting | Save & Load          | Achievement Status |
+| ----------- | ----- | ------- | -------------------- | ------------------ |
+| Non-Ironman | ✅ Any | ✅ Any   | ✅ Yes                | ⚠️ Partial          |
+| **Ironman** | ✅ Any | ✅ Any   | ✅ <ins>**Yes**</ins> | ✅ All              |
 
 
 > [!NOTE]
@@ -79,12 +79,13 @@ EU5 is successfully patched.
 ---
 
 ## 📘 Tutorial
-
 <div align="center">
 <img src="figures/position.png" alt="Pattern Position" width="600"/>
 </div>
 
-*More details coming soon...*
+<div align="center">
+<img src="figures/position2.png" alt="Pattern Position" width="600"/>
+</div>
 
 ---
 
