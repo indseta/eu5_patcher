@@ -3,6 +3,7 @@
 import re
 import shutil
 import sys
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Final
 
@@ -61,10 +62,54 @@ PATTERN_REPLACE3: Final[str] = (
     "b0 00"
 )
 
+# Save
+PATTERN4: Final[str] = (
+    "e8 ?? ?? ?? ?? "
+    "80 ?? ?? ?? ?? ?? 00 "
+    "75 ?? "
+    "80 ?? ?? ?? ?? ?? 00 "
+    "75 ?? "
+    "48 ?? ?? "
+    "e8"
+)
+
+PATTERN_REPLACE4: Final[str] = "e8 ?? ?? ?? ?? " "80 ?? ?? ?? ?? ?? 09"
+
+# Load
+PATTERN5: Final[str] = (
+    "80 ?? ?? ?? ?? ?? 00 "
+    "75 ?? "
+    "80 ?? ?? ?? ?? ?? 00 "
+    "75 ?? "
+    "83 ?? ?? ?? ?? ?? 00 "
+    "75 ?? "
+    "48 ?? ?? "
+    "e8"
+)
+
+PATTERN_REPLACE5: Final[str] = "80 ?? ?? ?? ?? ?? 09"
+
+
 EU5_PATH: Final[Path] = Path("eu5.exe")
 EU5_BACKUP_PATH: Final[Path] = Path("eu5.exe.backup")
 
 debuge_info = False
+
+
+@dataclass(frozen=True)
+class PatchDefinition:
+    label: str
+    pattern: str
+    replacement: str
+
+
+PATCHES: Final[list[PatchDefinition]] = [
+    PatchDefinition("Patch #1", PATTERN, PATTERN_REPLACE),
+    PatchDefinition("Patch #2", PATTERN2, PATTERN_REPLACE2),
+    PatchDefinition("Patch #3", PATTERN3, PATTERN_REPLACE3),
+    PatchDefinition("Patch #4", PATTERN4, PATTERN_REPLACE4),
+    PatchDefinition("Patch #5", PATTERN5, PATTERN_REPLACE5),
+]
 
 
 class PatchError(Exception):
@@ -147,34 +192,22 @@ def make_patch(filepath: Path) -> None:
     except OSError as e:
         raise PatchError(f"Failed to read file: {e}") from e
 
-    # Find patterns before touching disk
-    regex1 = pattern_to_regex(PATTERN)
-    regex2 = pattern_to_regex(PATTERN2)
-    regex3 = pattern_to_regex(PATTERN3)
-    offset1 = find_pattern(data, regex1)
-    offset2 = find_pattern(data, regex2)
-    offset3 = find_pattern(data, regex3)
-    replacement1 = pattern_to_list(PATTERN_REPLACE)
-    replacement2 = pattern_to_list(PATTERN_REPLACE2)
-    replacement3 = pattern_to_list(PATTERN_REPLACE3)
+    # Find every pattern and prepare replacements before touching disk
+    patch_jobs: list[tuple[PatchDefinition, int, list[int | None]]] = []
+    for patch_def in PATCHES:
+        regex = pattern_to_regex(patch_def.pattern)
+        offset = find_pattern(data, regex)
+        replacement = pattern_to_list(patch_def.replacement)
+        patch_jobs.append((patch_def, offset, replacement))
 
     # Create backup only after both patterns are confirmed
     create_backup(filepath, EU5_BACKUP_PATH)
 
-    print(f"\nPatch #1 found at offset: {offset1:#x}")
-    if debuge_info:
-        print("Applying Patch #1...\n")
-    apply_patch(data, offset1, replacement1)
-
-    print(f"\nPatch #2 found at offset: {offset2:#x}")
-    if debuge_info:
-        print("Applying Patch #2...\n")
-    apply_patch(data, offset2, replacement2)
-
-    print(f"\nPatch #3 found at offset: {offset3:#x}")
-    if debuge_info:
-        print("Applying Patch #3...\n")
-    apply_patch(data, offset3, replacement3)
+    for patch_def, offset, replacement in patch_jobs:
+        print(f"\n{patch_def.label} found at offset: {offset:#x}")
+        if debuge_info:
+            print(f"Applying {patch_def.label}...\n")
+        apply_patch(data, offset, replacement)
 
     # Write back
     try:

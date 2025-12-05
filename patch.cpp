@@ -13,6 +13,7 @@
 #include <sstream>
 #include <string>
 #include <string_view>
+#include <utility>
 #include <vector>
 
 namespace fs = std::filesystem;
@@ -66,6 +67,49 @@ constexpr std::string_view PATTERN_REPLACE3 =
     "48 ?? ?? ?? "
     "c3 "
     "b0 00";
+
+// Save
+constexpr std::string_view PATTERN4 =
+    "e8 ?? ?? ?? ?? "
+    "80 ?? ?? ?? ?? ?? 00 "
+    "75 ?? "
+    "80 ?? ?? ?? ?? ?? 00 "
+    "75 ?? "
+    "48 ?? ?? "
+    "e8";
+
+constexpr std::string_view PATTERN_REPLACE4 =
+    "e8 ?? ?? ?? ?? "
+    "80 ?? ?? ?? ?? ?? 09";
+
+// Load
+constexpr std::string_view PATTERN5 =
+    "80 ?? ?? ?? ?? ?? 00 "
+    "75 ?? "
+    "80 ?? ?? ?? ?? ?? 00 "
+    "75 ?? "
+    "83 ?? ?? ?? ?? ?? 00 "
+    "75 ?? "
+    "48 ?? ?? "
+    "e8";
+
+constexpr std::string_view PATTERN_REPLACE5 =
+    "80 ?? ?? ?? ?? ?? 09";
+
+struct PatchDefinition
+{
+    std::string_view label;
+    std::string_view pattern;
+    std::string_view replacement;
+};
+
+const std::vector<PatchDefinition> PATCH_DEFINITIONS = {
+    {"Patch #1", PATTERN, PATTERN_REPLACE},
+    {"Patch #2", PATTERN2, PATTERN_REPLACE2},
+    {"Patch #3", PATTERN3, PATTERN_REPLACE3},
+    {"Patch #4", PATTERN4, PATTERN_REPLACE4},
+    {"Patch #5", PATTERN5, PATTERN_REPLACE5},
+};
 
 constexpr std::string_view EU5_PATH = "eu5.exe";
 constexpr std::string_view EU5_BACKUP_PATH = "eu5.exe.backup";
@@ -255,41 +299,28 @@ void apply_patch_bytes(std::vector<uint8_t> &data,
     }
     auto &data = *data_opt;
 
-    // Parse patterns
-    const auto pattern = parse_pattern(PATTERN);
-    const auto replace_pattern = parse_pattern(PATTERN_REPLACE);
-    const auto pattern2 = parse_pattern(PATTERN2);
-    const auto replace_pattern2 = parse_pattern(PATTERN_REPLACE2);
-    const auto pattern3 = parse_pattern(PATTERN3);
-    const auto replace_pattern3 = parse_pattern(PATTERN_REPLACE3);
+    std::vector<size_t> offsets;
+    offsets.reserve(PATCH_DEFINITIONS.size());
+    std::vector<std::vector<PatternByte>> replacements;
+    replacements.reserve(PATCH_DEFINITIONS.size());
 
-    // Find patterns
-    auto offset_opt = find_pattern(data, pattern);
-    if (!offset_opt)
+    // Parse patterns and determine offsets
+    for (const auto &patch_def : PATCH_DEFINITIONS)
     {
-        std::cerr << "Error: Patch #1 not found. Have you patched it before?\n"
-                  << "If not, the pattern may need to be updated.\n";
-        return 1;
-    }
-    const size_t offset = *offset_opt;
+        const auto pattern = parse_pattern(patch_def.pattern);
+        auto offset_opt = find_pattern(data, pattern);
+        if (!offset_opt)
+        {
+            std::cerr << "Error: " << patch_def.label
+                      << " not found. Have you patched it before?\n"
+                      << "If not, the pattern may need to be updated.\n";
+            return 1;
+        }
 
-    auto offset2_opt = find_pattern(data, pattern2);
-    if (!offset2_opt)
-    {
-        std::cerr << "Error: Patch #2 not found. Have you patched it before?\n"
-                  << "If not, the second pattern may need to be updated.\n";
-        return 1;
+        offsets.push_back(*offset_opt);
+        auto replacement = parse_pattern(patch_def.replacement);
+        replacements.push_back(std::move(replacement));
     }
-    const size_t offset2 = *offset2_opt;
-
-    auto offset3_opt = find_pattern(data, pattern3);
-    if (!offset3_opt)
-    {
-        std::cerr << "Error: Patch #3 not found. Have you patched it before?\n"
-                  << "If not, the second pattern may need to be updated.\n";
-        return 1;
-    }
-    const size_t offset3 = *offset3_opt;
 
     // Create backup only after confirming both patterns exist
     if (!create_backup(filepath, fs::path(EU5_BACKUP_PATH)))
@@ -299,9 +330,10 @@ void apply_patch_bytes(std::vector<uint8_t> &data,
     }
     std::cout << "Backup created: " << EU5_BACKUP_PATH << '\n';
 
-    apply_patch_bytes(data, offset, replace_pattern, "Patch #1");
-    apply_patch_bytes(data, offset2, replace_pattern2, "Patch #2");
-    apply_patch_bytes(data, offset3, replace_pattern3, "Patch #3");
+    for (size_t i = 0; i < PATCH_DEFINITIONS.size(); ++i)
+    {
+        apply_patch_bytes(data, offsets[i], replacements[i], PATCH_DEFINITIONS[i].label);
+    }
 
     // Write back
     if (!write_file(filepath, data))
