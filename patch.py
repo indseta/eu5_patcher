@@ -1,3 +1,4 @@
+#!/bin/python3
 """EU5 Patcher - Enable Achievements Unconditionally"""
 
 import re
