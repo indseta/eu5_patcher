@@ -1,3 +1,4 @@
+#!/bin/python3
 """EU5 Patcher - Enable Achievements Unconditionally"""
 
 import re
@@ -73,10 +74,11 @@ PATTERN4: Final[str] = (
     "e8"
 )
 
-PATTERN_REPLACE4: Final[str] = "e8 ?? ?? ?? ?? " "80 ?? ?? ?? ?? ?? 09"
+PATTERN_REPLACE4: Final[str] = "e8 ?? ?? ?? ?? 80 ?? ?? ?? ?? ?? 09"
 
 # Load
 PATTERN5: Final[str] = (
+    "e8 ?? ?? ?? ?? "
     "80 ?? ?? ?? ?? ?? 00 "
     "75 ?? "
     "80 ?? ?? ?? ?? ?? 00 "
@@ -163,7 +165,7 @@ def find_pattern(data: bytes, pattern: re.Pattern[bytes]) -> int:
         )
     if len(matches) > 1:
         raise PatchError(
-            f"Multiple matches found ({len(matches)}). " "The pattern is ambiguous."
+            f"Multiple matches found ({len(matches)}). " f"The pattern is ambiguous."
         )
 
     return matches[0].start()
@@ -195,6 +197,7 @@ def make_patch(filepath: Path) -> None:
     # Find every pattern and prepare replacements before touching disk
     patch_jobs: list[tuple[PatchDefinition, int, list[int | None]]] = []
     for patch_def in PATCHES:
+        # print(patch_def.pattern, "\n")
         regex = pattern_to_regex(patch_def.pattern)
         offset = find_pattern(data, regex)
         replacement = pattern_to_list(patch_def.replacement)
