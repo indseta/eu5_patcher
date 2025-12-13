@@ -1,4 +1,4 @@
-#!/bin/python3
+#!/usr/bin/env python3
 """EU5 Patcher - Enable Achievements Unconditionally"""
 
 import os
