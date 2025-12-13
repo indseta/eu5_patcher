@@ -1,12 +1,59 @@
-#!/bin/python3
+#!/usr/bin/env python3
 """EU5 Patcher - Enable Achievements Unconditionally"""
 
+import os
+import platform
 import re
 import shutil
 import sys
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Final
+from typing import Final, Optional
+
+
+def get_steam_install_path() -> Optional[str]:
+    """
+    Get the Steam installation path on Windows by querying the registry.
+    Returns None if Steam is not installed or if not on Windows.
+    """
+    if platform.system() != "Windows":
+        return None
+
+    try:
+        import winreg
+    except:
+        return None
+
+    try:
+        key = winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE, r"SOFTWARE\\WOW6432Node\\Valve\\Steam")
+        path, _ = winreg.QueryValueEx(key, "InstallPath")
+        winreg.CloseKey(key)
+        return path
+    except FileNotFoundError:
+        try:
+            key = winreg.OpenKey(winreg.HKEY_CURRENT_USER, r"Software\\Valve\\Steam")
+            path, _ = winreg.QueryValueEx(key, "SteamPath")
+            winreg.CloseKey(key)
+            return path
+        except:
+            return None
+
+
+def get_game_folder(name: str) -> str:
+    """
+    Get the installation folder of a Steam game by its name.
+    Returns empty string if the game is not found.
+    """
+    steam_path = get_steam_install_path()
+    if not steam_path:
+        return ""
+
+    library_folders_path = os.path.join(steam_path, "steamapps", "common", name)
+    if not os.path.isdir(library_folders_path):
+        return ""
+
+    return library_folders_path
+
 
 # Constants
 # Achievement Check
@@ -93,9 +140,10 @@ PATTERN_REPLACE5: Final[str] = "80 ?? ?? ?? ?? ?? 09"
 
 
 EU5_PATH: Final[Path] = Path("eu5.exe")
-EU5_BACKUP_PATH: Final[Path] = Path("eu5.exe.backup")
+STEAM_EU5_PATH: Final[Path] = Path(get_game_folder("Europa Universalis V")) / "binaries" / "eu5.exe"
+EU5_BACKUP_SUFFIX: Final[str] = ".backup"
 
-debuge_info = False
+debug_info = False
 
 
 @dataclass(frozen=True)
@@ -176,12 +224,12 @@ def apply_patch(data: bytearray, offset: int, replacement: list[int | None]) -> 
     for i, value in enumerate(replacement):
         original = data[offset + i]
         if value is None:
-            if debuge_info:
+            if debug_info:
                 print(
                     f"{offset + i:#x}: {original:#04x} -> {original:#04x} (unchanged)"
                 )
         else:
-            if debuge_info:
+            if debug_info:
                 print(f"{offset + i:#x}: {original:#04x} -> {value:#04x}")
             data[offset + i] = value
 
@@ -204,11 +252,11 @@ def make_patch(filepath: Path) -> None:
         patch_jobs.append((patch_def, offset, replacement))
 
     # Create backup only after both patterns are confirmed
-    create_backup(filepath, EU5_BACKUP_PATH)
+    create_backup(filepath, filepath.with_name(filepath.name + EU5_BACKUP_SUFFIX))
 
     for patch_def, offset, replacement in patch_jobs:
         print(f"\n{patch_def.label} found at offset: {offset:#x}")
-        if debuge_info:
+        if debug_info:
             print(f"Applying {patch_def.label}...\n")
         apply_patch(data, offset, replacement)
 
@@ -222,16 +270,21 @@ def make_patch(filepath: Path) -> None:
 
 def main() -> int:
     """Main entry point."""
-    if not EU5_PATH.exists():
+    if EU5_PATH.exists():
+        path = EU5_PATH
+    elif STEAM_EU5_PATH.exists():
+        path = STEAM_EU5_PATH
+    else:
         print(
             "eu5.exe not found. "
             "Place this script in .../Europa Universalis V/binaries/"
+            "or install the game via Steam."
         )
+        print(f"Expected paths:\n - {EU5_PATH}\n - {STEAM_EU5_PATH}")
         input("Press Enter to exit...")
         return 1
-
     try:
-        make_patch(EU5_PATH)
+        make_patch(path)
     except PatchError as e:
         print(f"Error: {e}")
         input("Press Enter to exit...")
