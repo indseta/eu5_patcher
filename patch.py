@@ -143,7 +143,7 @@ EU5_PATH: Final[Path] = Path("eu5.exe")
 STEAM_EU5_PATH: Final[Path] = Path(get_game_folder("Europa Universalis V")) / "binaries" / "eu5.exe"
 EU5_BACKUP_SUFFIX: Final[str] = ".backup"
 
-debuge_info = False
+debug_info = False
 
 
 @dataclass(frozen=True)
@@ -224,12 +224,12 @@ def apply_patch(data: bytearray, offset: int, replacement: list[int | None]) -> 
     for i, value in enumerate(replacement):
         original = data[offset + i]
         if value is None:
-            if debuge_info:
+            if debug_info:
                 print(
                     f"{offset + i:#x}: {original:#04x} -> {original:#04x} (unchanged)"
                 )
         else:
-            if debuge_info:
+            if debug_info:
                 print(f"{offset + i:#x}: {original:#04x} -> {value:#04x}")
             data[offset + i] = value
 
@@ -256,7 +256,7 @@ def make_patch(filepath: Path) -> None:
 
     for patch_def, offset, replacement in patch_jobs:
         print(f"\n{patch_def.label} found at offset: {offset:#x}")
-        if debuge_info:
+        if debug_info:
             print(f"Applying {patch_def.label}...\n")
         apply_patch(data, offset, replacement)
 
