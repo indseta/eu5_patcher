@@ -25,7 +25,9 @@ def get_steam_install_path() -> Optional[str]:
         return None
 
     try:
-        key = winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE, r"SOFTWARE\\WOW6432Node\\Valve\\Steam")
+        key = winreg.OpenKey(
+            winreg.HKEY_LOCAL_MACHINE, r"SOFTWARE\\WOW6432Node\\Valve\\Steam"
+        )
         path, _ = winreg.QueryValueEx(key, "InstallPath")
         winreg.CloseKey(key)
         return path
@@ -39,6 +41,36 @@ def get_steam_install_path() -> Optional[str]:
             return None
 
 
+def find_steam_library_path(vdf_path, target_appid: str):
+    current_path = None
+    in_apps_block = False
+
+    with open(vdf_path, "r", encoding="utf-8") as f:
+        for line in f:
+            line = line.strip()
+
+            # 解析 path
+            if line.startswith('"path"'):
+                # "path"    "E:\SteamLibrary"
+                current_path = line.split('"')[3]
+
+            # 进入 apps 块
+            elif line == '"apps"':
+                in_apps_block = True
+
+            elif in_apps_block:
+                # apps 块结束
+                if line == "}":
+                    in_apps_block = False
+                    continue
+
+                # 检查 AppID
+                if line.startswith(f'"{target_appid}"'):
+                    return current_path
+
+    return None
+
+
 def get_game_folder(name: str) -> str:
     """
     Get the installation folder of a Steam game by its name.
@@ -46,13 +78,18 @@ def get_game_folder(name: str) -> str:
     """
     steam_path = get_steam_install_path()
     if not steam_path:
-        return ""
+        return None
 
-    library_folders_path = os.path.join(steam_path, "steamapps", "common", name)
-    if not os.path.isdir(library_folders_path):
-        return ""
+    library_db = os.path.join(steam_path, "steamapps", "libraryfolders.vdf")
+    library_path = find_steam_library_path(library_db, "3450310")  # EU5
+    if not os.path.isdir(library_path):
+        return None
 
-    return library_folders_path
+    game_folders_path = os.path.join(library_path, "steamapps", "common", name)
+    if not os.path.isdir(game_folders_path):
+        return None
+
+    return game_folders_path
 
 
 # Constants
@@ -140,7 +177,9 @@ PATTERN_REPLACE5: Final[str] = "80 ?? ?? ?? ?? ?? 09"
 
 
 EU5_PATH: Final[Path] = Path("eu5.exe")
-STEAM_EU5_PATH: Final[Path] = Path(get_game_folder("Europa Universalis V")) / "binaries" / "eu5.exe"
+STEAM_EU5_PATH: Final[Path] = (
+    Path(get_game_folder("Europa Universalis V")) / "binaries" / "eu5.exe"
+)
 EU5_BACKUP_SUFFIX: Final[str] = ".backup"
 
 debug_info = False
@@ -272,8 +311,10 @@ def main() -> int:
     """Main entry point."""
     if EU5_PATH.exists():
         path = EU5_PATH
+        print(f"Path: ./{EU5_PATH}")
     elif STEAM_EU5_PATH.exists():
         path = STEAM_EU5_PATH
+        print(f"Path: {STEAM_EU5_PATH}")
     else:
         print(
             "eu5.exe not found. "

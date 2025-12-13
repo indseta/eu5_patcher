@@ -16,17 +16,23 @@
 #include <utility>
 #include <vector>
 
+#ifdef _WIN32
+#define NOMINMAX
+#include <windows.h>
+#pragma comment(lib, "Advapi32.lib")
+#endif
+
 namespace fs = std::filesystem;
 
 // Constants
 
 // Achievement Check
-constexpr std::string_view PATTERN =
+constexpr std::string_view PATTERN1 =
     "80 ?? ?? ?? ?? ?? 00 75 ?? "
     "80 ?? ?? ?? ?? ?? 00 74 ?? "
     "80 ?? ?? ?? ?? ?? 00 74 ?? "
     "80 ?? ?? ?? ?? ?? 00";
-constexpr std::string_view PATTERN_REPLACE = "80 ?? ?? ?? ?? ?? 00 eb";
+constexpr std::string_view PATTERN_REPLACE1 = "80 ?? ?? ?? ?? ?? 00 eb";
 
 // Ironman Save and Load
 constexpr std::string_view PATTERN2 =
@@ -105,7 +111,7 @@ struct PatchDefinition
 };
 
 const std::vector<PatchDefinition> PATCH_DEFINITIONS = {
-    {"Patch #1", PATTERN, PATTERN_REPLACE},
+    {"Patch #1", PATTERN1, PATTERN_REPLACE1},
     {"Patch #2", PATTERN2, PATTERN_REPLACE2},
     {"Patch #3", PATTERN3, PATTERN_REPLACE3},
     {"Patch #4", PATTERN4, PATTERN_REPLACE4},
@@ -113,7 +119,9 @@ const std::vector<PatchDefinition> PATCH_DEFINITIONS = {
 };
 
 constexpr std::string_view EU5_PATH = "eu5.exe";
-constexpr std::string_view EU5_BACKUP_PATH = "eu5.exe.backup";
+constexpr std::string_view GAME_FOLDER = "Europa Universalis V";
+constexpr std::string_view APP_ID = "3450310";
+constexpr std::string_view EU5_BACKUP_SUFFIX = ".backup";
 
 bool debuge_info = false;
 
@@ -155,17 +163,25 @@ struct PatternByte
     return result;
 }
 
+struct PatternSearchResult
+{
+    std::optional<size_t> offset;
+    size_t match_count{0};
+};
+
 /**
  * Find a pattern in data, returning the offset if found.
  * Supports wildcard bytes in the pattern.
  */
-[[nodiscard]] std::optional<size_t> find_pattern(
+[[nodiscard]] PatternSearchResult find_pattern(
     const std::vector<uint8_t> &data,
     const std::vector<PatternByte> &pattern)
 {
+    PatternSearchResult result{};
+
     if (pattern.empty() || data.size() < pattern.size())
     {
-        return std::nullopt;
+        return result;
     }
 
     const size_t pattern_len = pattern.size();
@@ -185,11 +201,22 @@ struct PatternByte
 
         if (match)
         {
-            return i;
+            if (result.match_count == 0)
+            {
+                result.offset = i;
+            }
+
+            ++result.match_count;
+
+            if (result.match_count > 1)
+            {
+                // No need to keep scanning; we only care that it is ambiguous.
+                break;
+            }
         }
     }
 
-    return std::nullopt;
+    return result;
 }
 
 /**
@@ -285,6 +312,198 @@ void apply_patch_bytes(std::vector<uint8_t> &data,
     return !ec;
 }
 
+#ifdef _WIN32
+[[nodiscard]] std::optional<std::wstring> read_registry_string(
+    HKEY root, const wchar_t *subkey, const wchar_t *value_name)
+{
+    HKEY hKey = nullptr;
+    if (RegOpenKeyExW(root, subkey, 0, KEY_READ, &hKey) != ERROR_SUCCESS)
+    {
+        return std::nullopt;
+    }
+
+    DWORD type = 0;
+    DWORD size = 0;
+    if (RegQueryValueExW(hKey, value_name, nullptr, &type, nullptr, &size) != ERROR_SUCCESS ||
+        type != REG_SZ)
+    {
+        RegCloseKey(hKey);
+        return std::nullopt;
+    }
+
+    std::wstring buffer(size / sizeof(wchar_t), L'\0');
+    if (RegQueryValueExW(hKey, value_name, nullptr, nullptr,
+                         reinterpret_cast<LPBYTE>(buffer.data()), &size) != ERROR_SUCCESS)
+    {
+        RegCloseKey(hKey);
+        return std::nullopt;
+    }
+
+    RegCloseKey(hKey);
+
+    // Remove possible trailing nulls introduced by the API call
+    if (!buffer.empty() && buffer.back() == L'\0')
+    {
+        buffer.pop_back();
+    }
+
+    return buffer;
+}
+#endif
+
+[[nodiscard]] std::optional<fs::path> get_steam_install_path()
+{
+#ifdef _WIN32
+    auto primary = read_registry_string(
+        HKEY_LOCAL_MACHINE, L"SOFTWARE\\WOW6432Node\\Valve\\Steam", L"InstallPath");
+    if (primary)
+    {
+        return fs::path(*primary);
+    }
+
+    auto fallback = read_registry_string(
+        HKEY_CURRENT_USER, L"Software\\Valve\\Steam", L"SteamPath");
+    if (fallback)
+    {
+        return fs::path(*fallback);
+    }
+#endif
+    return std::nullopt;
+}
+
+[[nodiscard]] std::string trim(const std::string &s)
+{
+    const auto first = s.find_first_not_of(" \t\n\r");
+    if (first == std::string::npos)
+    {
+        return {};
+    }
+    const auto last = s.find_last_not_of(" \t\n\r");
+    return s.substr(first, last - first + 1);
+}
+
+[[nodiscard]] std::vector<std::string> extract_quoted_tokens(const std::string &line)
+{
+    std::vector<std::string> tokens;
+    size_t pos = 0;
+    while (true)
+    {
+        const auto start = line.find('"', pos);
+        if (start == std::string::npos)
+        {
+            break;
+        }
+
+        const auto end = line.find('"', start + 1);
+        if (end == std::string::npos)
+        {
+            break;
+        }
+
+        tokens.push_back(line.substr(start + 1, end - start - 1));
+        pos = end + 1;
+    }
+
+    return tokens;
+}
+
+[[nodiscard]] std::optional<fs::path> find_steam_library_path(const fs::path &vdf_path,
+                                                              std::string_view target_appid)
+{
+    std::ifstream file(vdf_path);
+    if (!file)
+    {
+        return std::nullopt;
+    }
+
+    std::string current_path;
+    bool in_apps_block = false;
+    std::string line;
+
+    while (std::getline(file, line))
+    {
+        const auto trimmed = trim(line);
+        const auto tokens = extract_quoted_tokens(trimmed);
+
+        if (tokens.empty())
+        {
+            if (in_apps_block && trimmed == "}")
+            {
+                in_apps_block = false;
+            }
+            continue;
+        }
+
+        if (!in_apps_block)
+        {
+            if (tokens[0] == "path" && tokens.size() >= 2)
+            {
+                current_path = tokens[1];
+                continue;
+            }
+
+            if (tokens[0] == "apps")
+            {
+                in_apps_block = true;
+            }
+            continue;
+        }
+
+        // Within "apps" block
+        if (tokens[0] == target_appid)
+        {
+            return fs::path(current_path);
+        }
+    }
+
+    return std::nullopt;
+}
+
+[[nodiscard]] std::optional<fs::path> get_game_folder(std::string_view name)
+{
+    const auto steam_path_opt = get_steam_install_path();
+    if (!steam_path_opt)
+    {
+        return std::nullopt;
+    }
+
+    const auto library_db = *steam_path_opt / "steamapps" / "libraryfolders.vdf";
+    const auto library_path = find_steam_library_path(library_db, APP_ID);
+    if (!library_path || !fs::is_directory(*library_path))
+    {
+        return std::nullopt;
+    }
+
+    const auto game_folder = *library_path / "steamapps" / "common" / std::string(name);
+    if (!fs::is_directory(game_folder))
+    {
+        return std::nullopt;
+    }
+
+    return game_folder;
+}
+
+[[nodiscard]] std::optional<fs::path> locate_eu5()
+{
+    const fs::path local_path{EU5_PATH};
+    if (fs::exists(local_path))
+    {
+        return local_path;
+    }
+
+    const auto game_folder = get_game_folder(GAME_FOLDER);
+    if (game_folder)
+    {
+        const auto steam_path = *game_folder / "binaries" / EU5_PATH;
+        if (fs::exists(steam_path))
+        {
+            return steam_path;
+        }
+    }
+
+    return std::nullopt;
+}
+
 /**
  * Apply the patch to the target file.
  * Returns: 0 = success, 1 = error
@@ -309,8 +528,9 @@ void apply_patch_bytes(std::vector<uint8_t> &data,
     for (const auto &patch_def : PATCH_DEFINITIONS)
     {
         const auto pattern = parse_pattern(patch_def.pattern);
-        auto offset_opt = find_pattern(data, pattern);
-        if (!offset_opt)
+        const auto search_result = find_pattern(data, pattern);
+
+        if (search_result.match_count == 0)
         {
             std::cerr << "Error: " << patch_def.label
                       << " not found. Have you patched it before?\n"
@@ -318,18 +538,28 @@ void apply_patch_bytes(std::vector<uint8_t> &data,
             return 1;
         }
 
-        offsets.push_back(*offset_opt);
+        if (search_result.match_count > 1)
+        {
+            std::cerr << "Error: " << patch_def.label
+                      << " pattern is ambiguous. The pattern is ambiguous.\n";
+            return 1;
+        }
+
+        offsets.push_back(*search_result.offset);
         auto replacement = parse_pattern(patch_def.replacement);
         replacements.push_back(std::move(replacement));
     }
 
     // Create backup only after confirming both patterns exist
-    if (!create_backup(filepath, fs::path(EU5_BACKUP_PATH)))
+    auto backup_path = filepath;
+    backup_path += EU5_BACKUP_SUFFIX;
+
+    if (!create_backup(filepath, backup_path))
     {
         std::cerr << "Error: Failed to create backup.\n";
         return 1;
     }
-    std::cout << "Backup created: " << EU5_BACKUP_PATH << '\n';
+    std::cout << "Backup created: " << backup_path << '\n';
 
     for (size_t i = 0; i < PATCH_DEFINITIONS.size(); ++i)
     {
@@ -349,10 +579,8 @@ void apply_patch_bytes(std::vector<uint8_t> &data,
 
 int main()
 {
-    const fs::path target_path{EU5_PATH};
-
-    // Check if target exists
-    if (!fs::exists(target_path))
+    const auto target_path_opt = locate_eu5();
+    if (!target_path_opt)
     {
         std::cerr << "eu5.exe not found.\n"
                   << "Place this file in .../Europa Universalis V/binaries/\n";
@@ -360,6 +588,9 @@ int main()
         std::cin.get();
         return 1;
     }
+
+    const auto &target_path = *target_path_opt;
+    std::cout << "Path: " << target_path << '\n';
 
     // Apply patch
     const int result = make_patch(target_path);
