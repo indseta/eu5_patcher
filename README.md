@@ -59,7 +59,7 @@ cl /std:c++17 /O2 /EHsc patch.cpp
 > [!WARNING]
 > Running unknown executables is risky. Only proceed if you fully trust the source.
 
-1. Download `patch.exe` from the [📦 Releases page](https://github.com/UFOdestiny/EU5-Patcher/releases/tag/exe)
+1. Download `patch.exe` from the [📦 Releases page](https://github.com/UFOdestiny/EU5-Patcher/releases/)
 2. Place it in `.../Europa Universalis V/binaries/` where eu5.exe exists
 3. Run it
 
