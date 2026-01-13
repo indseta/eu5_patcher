@@ -26,7 +26,7 @@ namespace fs = std::filesystem;
 
 // Constants
 
-// Achievement Check
+// Achievement Check: CanGetAchievements
 constexpr std::string_view PATTERN1 =
     "80 ?? ?? ?? ?? ?? 00 75 ?? "
     "80 ?? ?? ?? ?? ?? 00 74 ?? "
@@ -34,7 +34,7 @@ constexpr std::string_view PATTERN1 =
     "80 ?? ?? ?? ?? ?? 00";
 constexpr std::string_view PATTERN_REPLACE1 = "80 ?? ?? ?? ?? ?? 00 eb";
 
-// Ironman Save and Load
+// Ironman Save and Load: GameIsIronman
 constexpr std::string_view PATTERN2 =
     "74 ?? "
     "?? ?? ?? "
@@ -53,7 +53,7 @@ constexpr std::string_view PATTERN_REPLACE2 =
     "74 ?? "
     "b0 00";
 
-// Ironman Console
+// Ironman Console: BLOCK_COMMAND_MULTIPLAYER_IRONMAN
 constexpr std::string_view PATTERN3 =
     "00 "
     "75 ?? "
@@ -74,7 +74,7 @@ constexpr std::string_view PATTERN_REPLACE3 =
     "c3 "
     "b0 00";
 
-// Save
+// Save: SaveIngame
 constexpr std::string_view PATTERN4 =
     "e8 ?? ?? ?? ?? "
     "80 ?? ?? ?? ?? ?? 00 "
@@ -88,7 +88,7 @@ constexpr std::string_view PATTERN_REPLACE4 =
     "e8 ?? ?? ?? ?? "
     "80 ?? ?? ?? ?? ?? 09";
 
-// Load
+// Load: LoadIngame
 constexpr std::string_view PATTERN5 =
     "e8 ?? ?? ?? ?? "
     "80 ?? ?? ?? ?? ?? 00 "

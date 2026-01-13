@@ -103,7 +103,7 @@ PATTERN: Final[str] = (
 
 PATTERN_REPLACE: Final[str] = "80 ?? ?? ?? ?? ?? 00 eb"
 
-# Ironman Save and Load
+# Ironman Save and Load: GameIsIronman
 PATTERN2: Final[str] = (
     "74 ?? "
     "?? ?? ?? "
@@ -124,7 +124,7 @@ PATTERN_REPLACE2: Final[str] = (
     "b0 00"
 )
 
-# Ironman Console
+# Ironman Console: BLOCK_COMMAND_MULTIPLAYER_IRONMAN
 PATTERN3: Final[str] = (
     "00 "
     "75 ?? "
@@ -147,7 +147,7 @@ PATTERN_REPLACE3: Final[str] = (
     "b0 00"
 )
 
-# Save
+# Save: SaveIngame
 PATTERN4: Final[str] = (
     "e8 ?? ?? ?? ?? "
     "80 ?? ?? ?? ?? ?? 00 "
@@ -160,7 +160,7 @@ PATTERN4: Final[str] = (
 
 PATTERN_REPLACE4: Final[str] = "e8 ?? ?? ?? ?? 80 ?? ?? ?? ?? ?? 09"
 
-# Load
+# Load: LoadIngame
 PATTERN5: Final[str] = (
     "e8 ?? ?? ?? ?? "
     "80 ?? ?? ?? ?? ?? 00 "
