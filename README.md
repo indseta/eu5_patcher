@@ -42,11 +42,9 @@ This patcher allows you to:
 
 ### 🐍 Option 1: Python Script
 
-```bash
-# 1. Copy patch.py to the game's binary directory (where eu5.exe is located)
-#    e.g., ".../Europa Universalis V/binaries/"
+You can run the script from any location.
 
-# 2. Run the script
+```bash
 python patch.py
 ```
 
@@ -56,8 +54,8 @@ python patch.py
 # 1. Compile the source code
 cl /std:c++17 /O2 /EHsc patch.cpp
 
-# 2. Copy the generated patch.exe to the game's binary directory
-# 3. Run patch.exe
+# 2. Run the generated patch.exe
+patch.exe
 ```
 
 ### ⚠️ Option 3: Pre-built Executable
@@ -66,8 +64,7 @@ cl /std:c++17 /O2 /EHsc patch.cpp
 > Running unknown executables carries risks. Only proceed if you trust the source.
 
 1. Download `patch.exe` from the [📦 Releases page](https://github.com/UFOdestiny/EU5-Patcher/releases/).
-2. Place it in the game's binary folder (`.../Europa Universalis V/binaries/`).
-3. Run `patch.exe`.
+2. Run `patch.exe` (it can be run from any location).
 
 ---
 

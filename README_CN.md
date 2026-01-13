@@ -42,11 +42,9 @@
 
 ### 🐍 方法 1: Python 脚本
 
-```bash
-# 1. 将 patch.py 复制到游戏二进制目录（eu5.exe 所在位置）
-#    例如: ".../Europa Universalis V/binaries/"
+你可以从任意位置运行脚本。
 
-# 2. 运行脚本
+```bash
 python patch.py
 ```
 
@@ -56,8 +54,8 @@ python patch.py
 # 1. 编译源代码
 cl /std:c++17 /O2 /EHsc patch.cpp
 
-# 2. 将生成的 patch.exe 移动到游戏二进制目录
-# 3. 运行 patch.exe
+# 2. 运行生成的 patch.exe
+patch.exe
 ```
 
 ### ⚠️ 方法 3: 预编译 EXE
@@ -66,8 +64,7 @@ cl /std:c++17 /O2 /EHsc patch.cpp
 > 运行未知来源的可执行文件存在风险。请仅在信任来源的情况下继续。
 
 1. 从 [📦 Releases 页面](https://github.com/UFOdestiny/EU5-Patcher/releases/) 下载 `patch.exe`。
-2. 将其放入游戏二进制文件夹 (`.../Europa Universalis V/binaries/`)。
-3. 运行 `patch.exe`。
+2. 直接运行 `patch.exe`（支持在任意位置运行）。
 
 ---
 
