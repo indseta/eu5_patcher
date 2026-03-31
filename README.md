@@ -5,8 +5,6 @@
 ### Enable Achievements Unconditionally
 ##### - Fork which disables loading saves in ironman mode
 
-[English](README.md)
-
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Windows-lightgrey.svg)]()
 [![Game](https://img.shields.io/badge/game-Europa%20Universalis%20V-orange.svg)]()
