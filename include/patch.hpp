@@ -17,7 +17,9 @@
 #include <vector>
 
 #ifdef _WIN32
+#ifndef NOMINMAX
 #define NOMINMAX
+#endif
 #include <windows.h>
 #pragma comment(lib, "Advapi32.lib")
 #endif
@@ -112,7 +114,7 @@ struct PatchDefinition
 
 const std::vector<PatchDefinition> PATCH_DEFINITIONS = {
     {"Patch #1", PATTERN1, PATTERN_REPLACE1},
-    {"Patch #2", PATTERN2, PATTERN_REPLACE2},
+    // {"Patch #2", PATTERN2, PATTERN_REPLACE2},
     {"Patch #3", PATTERN3, PATTERN_REPLACE3},
     {"Patch #4", PATTERN4, PATTERN_REPLACE4},
     {"Patch #5", PATTERN5, PATTERN_REPLACE5},
@@ -575,28 +577,4 @@ void apply_patch_bytes(std::vector<uint8_t> &data,
 
     std::cout << "\nEU5 is successfully patched.\n";
     return 0;
-}
-
-int main()
-{
-    const auto target_path_opt = locate_eu5();
-    if (!target_path_opt)
-    {
-        std::cerr << "eu5.exe not found.\n"
-                  << "Place this file in .../Europa Universalis V/binaries/\n";
-        std::cout << "Press Enter to exit...";
-        std::cin.get();
-        return 1;
-    }
-
-    const auto &target_path = *target_path_opt;
-    std::cout << "Path: " << target_path << '\n';
-
-    // Apply patch
-    const int result = make_patch(target_path);
-
-    std::cout << "Press Enter to exit...";
-    std::cin.get();
-
-    return result;
 }

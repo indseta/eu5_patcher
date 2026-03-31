@@ -1,3 +1,9 @@
-patch.exe
-patch.obj
-compile.lnk
+# os / ide
+.cache
+.idea
+.vscode
+.DS_Store
+
+# build
+build
+bin
