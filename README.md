@@ -40,15 +40,7 @@ This patcher allows you to:
 > [!TIP]
 > You will need to patch `eu5.exe` again after every game update.
 
-### 🐍 Option 1: Python Script
-
-You can run the script from any location.
-
-```bash
-python patch.py
-```
-
-### ⚙️ Option 2: Compile from Source (C++)
+### ⚙️ Option 1: Compile from Source (C++)
 
 ```bash
 # 1. Compile the source code
@@ -58,13 +50,13 @@ cl /std:c++17 /O2 /EHsc patch.cpp
 patch.exe
 ```
 
-### ⚠️ Option 3: Pre-built Executable
+### ⚠️ Option 2: Pre-built Executable
 
 > [!WARNING]
 > Running unknown executables carries risks. Only proceed if you trust the source.
 
-1. Download `patch.exe` from the [📦 Releases page](https://github.com/UFOdestiny/EU5-Patcher/releases/).
-2. Run `patch.exe` (it can be run from any location).
+1. Download `eu5_patcher.exe` from the [📦 Releases page](https://github.com/indseta/eu5_patcher/releases/).
+2. Run `eu5_patcher.exe` (it can be run from any location).
 
 ---
 
