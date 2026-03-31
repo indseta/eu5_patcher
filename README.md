@@ -3,6 +3,7 @@
 # 🏆 EU5 Patcher
 
 ### Enable Achievements Unconditionally
+##### - Fork which disables loading saves in ironman mode
 
 [中文](README_CN.md) | [English](README.md)
 
@@ -22,10 +23,10 @@ This patcher allows you to:
 - Enable partial achievements in non-ironman mode.
 - Enable **all achievements** in ironman mode, while allowing you to **save & load** freely (just like in non-ironman mode).
 
-| Mode        | Mod   | Setting | Console              | Save & Load          | Achievement Status |
-| ----------- | ----- | ------- | -------------------- | -------------------- | ------------------ |
+| Mode        | Mod   | Setting  | Console              | Save & Load          | Achievement Status |
+| ----------- | ----- | -------- | -------------------- | -------------------- | ------------------ |
 | Non-Ironman | ✅ Any | ✅ Any   | ✅ Yes                | ✅ Yes                | ⚠️ Partial          |
-| **Ironman** | ✅ Any | ✅ Any   | ✅ <ins>**Yes**</ins> | ✅ <ins>**Yes**</ins> | ✅ All              |
+| **Ironman** | ✅ Any | ✅ Any   | ✅ <ins>**Yes**</ins> | ❌ No              | ✅ All              |
 
 
 > [!NOTE]
