@@ -24,7 +24,7 @@ This patcher allows you to:
 | Mode        | Mod   | Setting  | Console              | Save & Load          | Achievement Status |
 | ----------- | ----- | -------- | -------------------- | -------------------- | ------------------ |
 | Non-Ironman | ✅ Any | ✅ Any   | ✅ Yes                | ✅ Yes                | ⚠️ Partial          |
-| **Ironman** | ✅ Any | ✅ Any   | ✅ <ins>**Yes**</ins> | ❌ No              | ✅ All              |
+| **Ironman** | ✅ Any | ✅ Any   | ✅ <ins>**Yes**</ins> | ❌ <ins>**No**</ins> | ✅ All              |
 
 
 > [!NOTE]
